@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440  # 24 hours
 
-    # Database
-    database_url: str = f"sqlite+aiosqlite:///{Path.home() / '.issue_finder' / 'web.db'}"
+    # Database — use /tmp on cloud (ephemeral), local path in dev
+    database_url: str = f"sqlite+aiosqlite:///{Path('/tmp') / 'issue_finder_web.db'}"
 
     # GitHub defaults
     default_min_stars: int = 200
