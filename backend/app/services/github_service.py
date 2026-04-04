@@ -5,12 +5,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 from dataclasses import asdict
 from typing import AsyncGenerator
 
-# Add the issue_finder package to path
-sys.path.insert(0, "/Users/tsin/Developer/analyzer/.venv/lib/python3.12/site-packages")
+# Add parent dir to path so issue_finder is importable
+_backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 from issue_finder.async_client import AsyncGitHubClient
 from issue_finder.cache import CacheStore

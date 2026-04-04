@@ -29,7 +29,11 @@ class Settings(BaseSettings):
     github_oauth_redirect: str = "http://localhost:3000/auth/callback"
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://pranalyzer.vercel.app",
+    ]
 
     class Config:
         env_file = ".env"
