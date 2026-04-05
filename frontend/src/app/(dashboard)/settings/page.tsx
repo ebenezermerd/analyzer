@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const setTokenMutation = useSetGithubToken();
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <h1 className="font-heading text-4xl font-light tracking-tight">
@@ -197,12 +197,12 @@ function PrefToggle({
         <label className="text-xs font-medium">{label}</label>
         <button
           onClick={() => onChange(!value)}
-          className={`relative w-9 h-5 rounded-full transition-colors ${
+          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
             value ? "bg-primary" : "bg-muted"
           }`}
         >
-          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-            value ? "translate-x-4" : "translate-x-0.5"
+          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+            value ? "translate-x-[22px]" : "translate-x-[3px]"
           }`} />
         </button>
       </div>

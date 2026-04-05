@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Bell, ExternalLink, Check, RefreshCw, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { useMarkNotificationRead, useMarkAllNotificationsRead, useScanBookmarks 
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [style, setStyle] = useState<React.CSSProperties>({});
   const bellRef = useRef<HTMLButtonElement>(null);
   const { data } = useNotifications();
   const markRead = useMarkNotificationRead();
@@ -21,22 +21,27 @@ export function NotificationBell() {
   const unread = data?.unread_count ?? 0;
   const notifications = data?.notifications ?? [];
 
-  useEffect(() => {
-    if (open && bellRef.current) {
-      const rect = bellRef.current.getBoundingClientRect();
-      setPos({
-        top: Math.max(8, rect.top - 320), // open above, 320px height
-        left: rect.right + 8,             // right of the bell
-      });
-    }
-  }, [open]);
+  const updatePosition = useCallback(() => {
+    if (!bellRef.current) return;
+    const rect = bellRef.current.getBoundingClientRect();
+    // Position: anchor bottom-right of dropdown to the top-right of the bell
+    setStyle({
+      position: "fixed" as const,
+      bottom: window.innerHeight - rect.top + 4,
+      left: rect.left - 4,
+      zIndex: 60,
+    });
+  }, []);
 
-  // Close on escape
+  useEffect(() => {
+    if (open) updatePosition();
+  }, [open, updatePosition]);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
   return (
@@ -56,54 +61,32 @@ export function NotificationBell() {
 
       {open && typeof document !== "undefined" && createPortal(
         <>
-          {/* Backdrop */}
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
-
-          {/* Dropdown — positioned via portal */}
-          <div
-            className="fixed w-80 glass-strong rounded-lg border border-border/30 shadow-2xl z-[60]"
-            style={{ top: pos.top, left: Math.min(pos.left, window.innerWidth - 340) }}
-          >
+          <div className="w-80 glass-strong rounded-lg border border-border/30 shadow-2xl" style={style}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
               <h3 className="text-sm font-medium">Notifications</h3>
               <div className="flex gap-1">
-                <Button
-                  variant="ghost" size="sm" className="h-6 px-2 text-[10px]"
-                  onClick={() => scanBookmarks.mutate()}
-                  disabled={scanBookmarks.isPending}
-                >
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => scanBookmarks.mutate()} disabled={scanBookmarks.isPending}>
                   {scanBookmarks.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                 </Button>
                 {unread > 0 && (
-                  <Button
-                    variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-primary"
-                    onClick={() => markAllRead.mutate()}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-primary" onClick={() => markAllRead.mutate()}>
                     <Check className="w-3 h-3 mr-1" />Read all
                   </Button>
                 )}
               </div>
             </div>
-
             <ScrollArea className="max-h-72">
               {notifications.length === 0 ? (
                 <div className="py-8 text-center text-xs text-muted-foreground">
                   No notifications yet.
                   <br />
-                  <button onClick={() => scanBookmarks.mutate()} className="text-primary underline mt-1">
-                    Scan bookmarked repos
-                  </button>
+                  <button onClick={() => scanBookmarks.mutate()} className="text-primary underline mt-1">Scan bookmarked repos</button>
                 </div>
               ) : (
                 <div className="divide-y divide-border/10">
                   {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className={`px-4 py-3 text-xs transition-colors cursor-pointer ${
-                        n.read ? "opacity-50" : "hover:bg-accent/30"
-                      }`}
-                      onClick={() => { if (!n.read) markRead.mutate(n.id); }}
-                    >
+                    <div key={n.id} className={`px-4 py-3 text-xs transition-colors cursor-pointer ${n.read ? "opacity-50" : "hover:bg-accent/30"}`} onClick={() => { if (!n.read) markRead.mutate(n.id); }}>
                       <div className="flex items-start gap-2">
                         {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}
                         <div className="flex-1 min-w-0">

@@ -50,25 +50,49 @@ function getPrefs(): Record<string, string> {
 
 function withPrefs(base: string, extra?: Record<string, string>): string {
   const prefs = { ...getPrefs(), ...extra };
-  const params = new URLSearchParams(prefs);
+  // Don't duplicate params already in the URL
+  const existingParams = new Set<string>();
+  const qIdx = base.indexOf("?");
+  if (qIdx !== -1) {
+    new URLSearchParams(base.slice(qIdx + 1)).forEach((_, k) => existingParams.add(k));
+  }
+  const newParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(prefs)) {
+    if (!existingParams.has(k)) newParams.set(k, v);
+  }
+  const qs = newParams.toString();
+  if (!qs) return base;
   const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}${params.toString()}`;
+  return `${base}${sep}${qs}`;
 }
 
-// Discovery & Search
+// Discovery & Search — params from arguments take priority, withPrefs fills in the rest
 export const discovery = {
-  discover: (sources = "trending,topics,curated", maxRepos = 30) =>
-    fetchAPI<{ repos: Repo[]; total: number }>(withPrefs(`/api/discover?sources=${sources}&max_repos=${maxRepos}`)),
-  search: (q: string, minStars = 200, maxResults = 50) =>
-    fetchAPI<{ repos: Repo[]; total: number }>(withPrefs(`/api/search?q=${encodeURIComponent(q)}&min_stars=${minStars}&max_results=${maxResults}`)),
+  discover: (sources = "trending,topics,curated", maxRepos?: number) => {
+    const p = getPrefs();
+    const mr = maxRepos ?? (Number(p.max_repos) || 30);
+    return fetchAPI<{ repos: Repo[]; total: number }>(withPrefs(`/api/discover?sources=${sources}&max_repos=${mr}`));
+  },
+  search: (q: string, minStars?: number, maxResults?: number) => {
+    const p = getPrefs();
+    const ms = minStars ?? (Number(p.min_stars) || 200);
+    const mr = maxResults ?? (Number(p.max_repos) || 50);
+    return fetchAPI<{ repos: Repo[]; total: number }>(withPrefs(`/api/search?q=${encodeURIComponent(q)}&min_stars=${ms}&max_results=${mr}`));
+  },
   getRepo: (owner: string, name: string) =>
     fetchAPI<Repo>(withPrefs(`/api/repo/${owner}/${name}`)),
-  getIssues: (owner: string, name: string, smartFilter = true, maxIssues = 100) =>
-    fetchAPI<IssuesResponse>(withPrefs(`/api/repo/${owner}/${name}/issues?smart_filter=${smartFilter}&max_issues=${maxIssues}`)),
+  getIssues: (owner: string, name: string, smartFilter = true, maxIssues?: number) => {
+    const p = getPrefs();
+    const mi = maxIssues ?? (Number(p.max_issues) || 100);
+    return fetchAPI<IssuesResponse>(withPrefs(`/api/repo/${owner}/${name}/issues?smart_filter=${smartFilter}&max_issues=${mi}`));
+  },
   analyzeIssue: (owner: string, name: string, issueNumber: number) =>
     fetchAPI<AnalysisResult>(withPrefs(`/api/repo/${owner}/${name}/issues/${issueNumber}/analyze`)),
-  scanRepo: (owner: string, name: string, maxIssues = 100) =>
-    fetchAPI<{ results: AnalysisResult[]; total: number }>(withPrefs(`/api/repo/${owner}/${name}/scan?max_issues=${maxIssues}`)),
+  scanRepo: (owner: string, name: string, maxIssues?: number) => {
+    const p = getPrefs();
+    const mi = maxIssues ?? (Number(p.max_issues) || 100);
+    return fetchAPI<{ results: AnalysisResult[]; total: number }>(withPrefs(`/api/repo/${owner}/${name}/scan?max_issues=${mi}`));
+  },
   getProfiles: () => fetchAPI<{ profiles: Profile[] }>("/api/profiles"),
   getPrDiff: (owner: string, name: string, prNumber: number) =>
     fetchAPI<{ files: PrFileDiff[]; total: number }>(`/api/repo/${owner}/${name}/pr/${prNumber}/diff`),
