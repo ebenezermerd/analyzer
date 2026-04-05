@@ -29,19 +29,30 @@ export const auth = {
     fetchAPI("/auth/github-token", { method: "POST", body: JSON.stringify({ github_token }) }),
 };
 
-// Helper to append profile + language params
-function withPrefs(base: string): string {
-  if (typeof window === "undefined") return base;
+// Helper to read all preferences from persisted store
+function getPrefs(): Record<string, string> {
+  if (typeof window === "undefined") return {};
   try {
     const stored = JSON.parse(localStorage.getItem("issue-finder-storage") || "{}");
-    const state = stored?.state || {};
-    const profile = state.activeProfile || "pr_writer";
-    const language = state.language || "Python";
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}profile=${profile}&language=${language}`;
+    const s = stored?.state || {};
+    return {
+      profile: s.activeProfile || "pr_writer",
+      language: s.language || "Python",
+      min_stars: String(s.minStars ?? 200),
+      max_repos: String(s.maxRepos ?? 30),
+      max_issues: String(s.maxIssues ?? 100),
+      min_score: String(s.minScore ?? 5.0),
+    };
   } catch {
-    return base;
+    return {};
   }
+}
+
+function withPrefs(base: string, extra?: Record<string, string>): string {
+  const prefs = { ...getPrefs(), ...extra };
+  const params = new URLSearchParams(prefs);
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}${params.toString()}`;
 }
 
 // Discovery & Search

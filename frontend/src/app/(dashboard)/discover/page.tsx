@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Compass, TrendingUp, Hash, BookOpen, Search, Star,
   HardDrive, ArrowRight, Loader2, Zap, Radio, CheckCircle2,
-  XCircle, AlertCircle,
+  XCircle, AlertCircle, SlidersHorizontal, RotateCcw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,23 @@ const sourceConfig = {
 
 export default function DiscoverPage() {
   const router = useRouter();
-  const { selectRepo, githubToken } = useStore();
+  const store = useStore();
+  const { selectRepo, githubToken } = store;
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("discover");
   const [triggerSearch, setTriggerSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Local filter overrides (initialized from store)
+  const [fMinStars, setFMinStars] = useState(store.minStars);
+  const [fMaxRepos, setFMaxRepos] = useState(store.maxRepos);
+  const [fMaxSize, setFMaxSize] = useState(store.maxRepoSizeMb);
+
+  const activeFilterCount = [
+    fMinStars !== 200,
+    fMaxRepos !== 30,
+    fMaxSize !== 200,
+  ].filter(Boolean).length;
 
   // ── WebSocket discovery ──────────────────────────────────
   const [discoverSource, setDiscoverSource] = useState("");
@@ -55,11 +68,13 @@ export default function DiscoverPage() {
     setTriggerSearch("");
     setDiscoverSource(source);
     const sources = source === "all" ? "trending,topics,curated" : source;
-    const params: Record<string, string> = { sources, max_repos: "30" };
+    const params: Record<string, string> = {
+      sources,
+      max_repos: String(fMaxRepos),
+    };
     if (githubToken) params.token = githubToken;
     setDiscoverParams(params);
     discoverWS.disconnect();
-    // Small delay to let params update
     setTimeout(() => {
       setDiscoverParams(params);
       discoverWS.connect();
@@ -158,6 +173,45 @@ export default function DiscoverPage() {
           {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           <span className="ml-2">Search</span>
         </Button>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            filtersOpen || activeFilterCount > 0
+              ? "bg-primary/10 text-primary border border-primary/20"
+              : "text-muted-foreground hover:text-foreground glass"
+          }`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filters
+          {activeFilterCount > 0 && (
+            <Badge className="bg-primary text-primary-foreground text-[9px] px-1 py-0 ml-1">{activeFilterCount}</Badge>
+          )}
+        </button>
+
+        <AnimatePresence>
+          {filtersOpen && (
+            <motion.div
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="flex items-center gap-3 overflow-hidden"
+            >
+              <FilterInput label="Min Stars" value={fMinStars} onChange={setFMinStars} min={0} max={50000} step={50} />
+              <FilterInput label="Max Repos" value={fMaxRepos} onChange={setFMaxRepos} min={1} max={100} />
+              <FilterInput label="Max Size MB" value={fMaxSize} onChange={setFMaxSize} min={1} max={1000} />
+              <button
+                onClick={() => { setFMinStars(200); setFMaxRepos(30); setFMaxSize(200); }}
+                className="text-[10px] text-muted-foreground hover:text-primary whitespace-nowrap"
+              >
+                <RotateCcw className="w-3 h-3 inline mr-0.5" />Reset
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Source buttons + Tabs for content */}
@@ -492,6 +546,27 @@ function PhaseStep({ label, active, done }: { label: string; active: boolean; do
         <div className="w-4 h-4 rounded-full border border-current" />
       )}
       {label}
+    </div>
+  );
+}
+
+function FilterInput({
+  label, value, onChange, min, max, step = 1,
+}: {
+  label: string; value: number; onChange: (v: number) => void; min: number; max: number; step?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
+      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        min={min}
+        max={max}
+        step={step}
+        className="w-16 h-7 px-2 text-xs font-mono rounded-md glass border border-border/30 focus:border-primary/40 focus:outline-none"
+      />
     </div>
   );
 }

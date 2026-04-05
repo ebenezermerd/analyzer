@@ -18,8 +18,11 @@ import { useStore } from "@/lib/store";
 import { useRepo, useRepoIssues, useAnalyzeIssue } from "@/lib/queries";
 import { useCreateBookmark } from "@/lib/mutations";
 import { DiffViewer } from "@/components/diff-viewer";
+import { PrFileAnalysis } from "@/components/pr-file-analysis";
 import { Pagination } from "@/components/pagination";
 import { exportIssuesJSON, exportIssuesCSV } from "@/lib/export";
+import { usePrDiff } from "@/lib/queries";
+import { toast } from "sonner";
 import type { Issue, AnalysisResult } from "@/lib/api";
 
 const PAGE_SIZE = 20;
@@ -314,79 +317,114 @@ function AnalysisPanel({
   result: AnalysisResult; repoFullName: string; onBookmark: () => void; isBookmarking: boolean; bookmarked: boolean;
 }) {
   const passes = result.passes;
+  const diffQuery = usePrDiff(result.pr ? repoFullName : null, result.pr?.number ?? null);
+  const diffFiles = diffQuery.data?.files ?? [];
+
+  function copySha() {
+    if (result.pr?.base_sha) {
+      navigator.clipboard.writeText(result.pr.base_sha);
+      toast.success("Base SHA copied");
+    }
+  }
+
   return (
-    <Card className={`glass sticky top-8 ${passes ? "border-green-500/30" : "border-red-500/30"}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-heading">#{result.issue.number} Analysis</CardTitle>
-          <Badge variant={passes ? "default" : "destructive"} className={passes ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}>
-            {passes ? "PASSES" : "FAILS"} — {result.score.toFixed(1)}
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground line-clamp-2">{result.issue.title}</p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          {result.reasons.map((r, i) => {
-            const isPositive = r.includes("pure text") || r.includes("code files changed") || r.includes("substantive") || r.includes("Recent") || r.includes("preferred label") || r.includes("substantial");
-            return (
-              <div key={i} className="flex items-start gap-2 text-xs">
-                {isPositive ? <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0 mt-0.5" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />}
-                <span className="text-muted-foreground">{r}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {result.pr && (
-          <>
-            <Separator className="opacity-30" />
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked PR</h4>
-              <div className="glass rounded-lg p-3 space-y-2">
-                <a href={result.pr.html_url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                  PR #{result.pr.number} <ArrowUpRight className="w-3 h-3" />
-                </a>
-                <div className="flex gap-3 text-[10px] text-muted-foreground">
-                  <span>+{result.pr.total_additions} / -{result.pr.total_deletions}</span>
-                  <span>{result.pr.files_count} files</span>
-                  <Badge variant="secondary" className="text-[9px] px-1 py-0">{result.pr.merged ? "merged" : result.pr.state}</Badge>
+    <ScrollArea className="h-[calc(100vh-280px)]">
+      <Card className={`glass ${passes ? "border-green-500/30" : "border-red-500/30"}`}>
+        <CardHeader className="pb-3">
+          {/* 1. Verdict */}
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-heading">#{result.issue.number} Analysis</CardTitle>
+            <Badge variant={passes ? "default" : "destructive"} className={passes ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}>
+              {passes ? "PASSES" : "FAILS"} — {result.score.toFixed(1)}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground line-clamp-2">{result.issue.title}</p>
+          <Badge variant="secondary" className="text-[10px] w-fit">{result.complexity_hint}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 2. Scoring breakdown */}
+          <div className="space-y-1.5">
+            {result.reasons.map((r, i) => {
+              const isPositive = r.includes("pure text") || r.includes("code files changed") || r.includes("substantive") || r.includes("Recent") || r.includes("preferred label") || r.includes("substantial");
+              return (
+                <div key={i} className="flex items-start gap-2 text-xs">
+                  {isPositive ? <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0 mt-0.5" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />}
+                  <span className="text-muted-foreground">{r}</span>
                 </div>
-                {result.pr.base_sha && (
-                  <p className="font-mono text-[10px] text-muted-foreground/60 truncate">base: {result.pr.base_sha}</p>
-                )}
+              );
+            })}
+          </div>
+
+          {/* 3. PR Summary */}
+          {result.pr && (
+            <>
+              <Separator className="opacity-30" />
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked PR</h4>
+                <div className="glass rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <a href={result.pr.html_url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                      PR #{result.pr.number} <ArrowUpRight className="w-3 h-3" />
+                    </a>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0">{result.pr.merged ? "merged" : result.pr.state}</Badge>
+                  </div>
+                  {result.pr.base_sha && (
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-[10px] text-muted-foreground/60 truncate flex-1">base: {result.pr.base_sha}</p>
+                      <button onClick={copySha} className="text-[9px] text-primary hover:underline shrink-0">Copy SHA</button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        <Badge variant="secondary" className="text-[10px]">{result.complexity_hint}</Badge>
+          {/* 4. File Analysis */}
+          {result.pr && diffFiles.length > 0 && (
+            <>
+              <Separator className="opacity-30" />
+              <PrFileAnalysis
+                files={diffFiles}
+                totalAdditions={result.pr.total_additions}
+                totalDeletions={result.pr.total_deletions}
+              />
+            </>
+          )}
 
-        {/* Diff viewer */}
-        {result.pr && (
-          <>
-            <Separator className="opacity-30" />
-            <DiffViewer repoFullName={repoFullName} prNumber={result.pr.number} />
-          </>
-        )}
+          {/* 5. Diff Viewer */}
+          {result.pr && (
+            <>
+              <Separator className="opacity-30" />
+              <DiffViewer repoFullName={repoFullName} prNumber={result.pr.number} />
+            </>
+          )}
 
-        <div className="flex gap-2 pt-2">
-          <a href={result.issue.html_url} target="_blank" rel="noreferrer" className="flex-1">
-            <Button variant="outline" size="sm" className="w-full text-xs">
-              <ExternalLink className="w-3 h-3 mr-1" /> View Issue
+          {/* 6. Actions */}
+          <div className="flex gap-2 pt-2">
+            <a href={result.issue.html_url} target="_blank" rel="noreferrer" className="flex-1">
+              <Button variant="outline" size="sm" className="w-full text-xs">
+                <ExternalLink className="w-3 h-3 mr-1" /> Issue
+              </Button>
+            </a>
+            {result.pr && (
+              <a href={result.pr.html_url} target="_blank" rel="noreferrer" className="flex-1">
+                <Button variant="outline" size="sm" className="w-full text-xs">
+                  <ExternalLink className="w-3 h-3 mr-1" /> PR
+                </Button>
+              </a>
+            )}
+            <Button
+              variant="outline" size="sm"
+              className={`text-xs ${bookmarked ? "border-green-500/30 text-green-400" : "border-primary/30 text-primary"}`}
+              onClick={onBookmark}
+              disabled={isBookmarking || bookmarked}
+            >
+              <BookmarkIcon className="w-3 h-3 mr-1" />
+              {bookmarked ? "Saved" : isBookmarking ? "..." : "Save"}
             </Button>
-          </a>
-          <Button
-            variant="outline" size="sm"
-            className={`text-xs ${bookmarked ? "border-green-500/30 text-green-400" : "border-primary/30 text-primary"}`}
-            onClick={onBookmark}
-            disabled={isBookmarking || bookmarked}
-          >
-            <BookmarkIcon className="w-3 h-3 mr-1" />
-            {bookmarked ? "Saved" : isBookmarking ? "..." : "Save"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+    </ScrollArea>
   );
 }
