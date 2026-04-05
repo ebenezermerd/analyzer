@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # GitHub OAuth
     github_client_id: str = ""
     github_client_secret: str = ""
-    github_oauth_redirect: str = "http://localhost:3000/auth/callback"
+    github_oauth_redirect: str = "https://pranalyzer.vercel.app/auth/callback"
 
     # CORS
     cors_origins: list[str] = [
