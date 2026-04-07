@@ -44,9 +44,13 @@ class Settings(BaseSettings):
         but SQLAlchemy needs postgresql+asyncpg:// for async."""
         url = self.database_url
         if url.startswith("postgres://"):
-            self.database_url = "postgresql+asyncpg://" + url[len("postgres://"):]
+            url = "postgresql+asyncpg://" + url[len("postgres://"):]
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
-            self.database_url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+            url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+        # asyncpg doesn't understand sslmode= param — replace with ssl=require
+        url = url.replace("?sslmode=require", "?ssl=require")
+        url = url.replace("&sslmode=require", "&ssl=require")
+        self.database_url = url
         return self
 
     class Config:
