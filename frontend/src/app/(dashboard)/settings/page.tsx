@@ -13,14 +13,17 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useStore, DEFAULTS } from "@/lib/store";
 import { useSetGithubToken } from "@/lib/mutations";
+import { useMe } from "@/lib/queries";
 import { oauth } from "@/lib/api";
 
 export default function SettingsPage() {
   const router = useRouter();
   const store = useStore();
-  const { email, token, githubToken, logout, setPref, resetPrefs } = store;
-  const [ghToken, setGhToken] = useState(githubToken || "");
+  const { email, token, logout, setPref, resetPrefs } = store;
+  const [ghToken, setGhToken] = useState("");
   const setTokenMutation = useSetGithubToken();
+  const meQuery = useMe();
+  const hasServerToken = meQuery.data?.has_github_token ?? false;
 
   return (
     <div className="space-y-8">
@@ -108,7 +111,7 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium">{email}</p>
                   <p className="text-xs text-muted-foreground">
-                    GitHub token: {githubToken ? <Badge variant="secondary" className="text-[9px]">configured</Badge> : <Badge variant="secondary" className="text-[9px] text-yellow-400">not set</Badge>}
+                    GitHub token: {hasServerToken ? <Badge variant="secondary" className="text-[9px] text-green-400">configured on server</Badge> : <Badge variant="secondary" className="text-[9px] text-yellow-400">not set</Badge>}
                   </p>
                 </div>
               </div>
@@ -142,13 +145,19 @@ export default function SettingsPage() {
             </a>{" "}
             with <code className="text-[10px] bg-muted px-1 py-0.5 rounded">repo</code> scope.
           </p>
+          {hasServerToken && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+              <Check className="w-4 h-4 text-green-400" />
+              <p className="text-xs text-green-400">GitHub token is saved on the server. API requests use your token for higher rate limits.</p>
+            </div>
+          )}
           <div className="flex gap-3">
-            <Input placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" type="password" className="glass font-mono text-xs" value={ghToken} onChange={(e) => setGhToken(e.target.value)} />
+            <Input placeholder={hasServerToken ? "Enter new token to replace..." : "ghp_xxxxxxxxxxxxxxxxxxxx"} type="password" className="glass font-mono text-xs" value={ghToken} onChange={(e) => setGhToken(e.target.value)} />
             <Button onClick={() => setTokenMutation.mutate(ghToken)} disabled={setTokenMutation.isPending || !ghToken || !token} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 shrink-0">
-              {setTokenMutation.isSuccess ? <Check className="w-4 h-4 text-green-400" /> : setTokenMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+              {setTokenMutation.isSuccess ? <Check className="w-4 h-4 text-green-400" /> : setTokenMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : hasServerToken ? "Update" : "Save"}
             </Button>
           </div>
-          {!token && <p className="text-xs text-yellow-400">Sign in first to save your token.</p>}
+          {!token && <p className="text-xs text-yellow-400">Sign in first to save your token to the server.</p>}
         </CardContent>
       </Card>
     </div>

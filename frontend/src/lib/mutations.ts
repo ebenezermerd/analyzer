@@ -7,12 +7,19 @@ import type { CreateBookmarkData } from "./api";
 
 // ── Auth ─────────────────────────────────────────────────────────────
 export function useLogin() {
-  const { setAuth } = useStore();
+  const { setAuth, setGithubToken } = useStore();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       authApi.login(email, password),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setAuth(data.access_token, data.user_id, data.email);
+      // Restore github token status from server
+      try {
+        const me = await authApi.me();
+        if (me.has_github_token) setGithubToken("stored");
+      } catch {}
+      qc.invalidateQueries({ queryKey: keys.me });
       toast.success("Signed in successfully");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -33,10 +40,10 @@ export function useSetGithubToken() {
   const { setGithubToken } = useStore();
   return useMutation({
     mutationFn: (token: string) => authApi.setGithubToken(token),
-    onSuccess: (_, token) => {
-      setGithubToken(token);
+    onSuccess: () => {
+      setGithubToken("stored"); // Don't store actual token in localStorage — just flag it
       qc.invalidateQueries({ queryKey: keys.me });
-      toast.success("GitHub token saved");
+      toast.success("GitHub token saved to server");
     },
     onError: (err: Error) => toast.error(err.message),
   });
