@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { FileCode, TestTube, FileText, Settings2, File, Plus, Pencil, Trash2, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import type { PrFileDiff } from "@/lib/api";
@@ -143,25 +142,35 @@ export function PrFileAnalysis({ files, totalAdditions, totalDeletions }: PrFile
 
       {/* File matrix */}
       <div className="space-y-1">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] mb-2">File Changes</p>
-        <ScrollArea className={analysis.classified.length <= 10 ? "" : analysis.classified.length <= 30 ? "max-h-[300px]" : "max-h-[400px]"}>
-          <div className="space-y-0">
-            {analysis.classified.map((f, i) => {
-              const tc = typeColors[f.type];
-              const sc = statusIcons[f.status];
-              const StatusIcon = sc.icon;
-              return (
-                <div key={f.filename} className={`flex items-center gap-2 text-[11px] py-1.5 px-1 rounded-sm border-b border-border/5 last:border-0 transition-colors hover:bg-accent/20 ${i % 2 === 1 ? "bg-accent/5" : ""}`}>
-                  <Badge className={`${tc.bg} ${tc.text} text-[8px] px-1 py-0 w-10 justify-center border border-current/20`}>{tc.label}</Badge>
-                  <StatusIcon className={`w-3 h-3 ${sc.color} shrink-0`} />
-                  <span className="font-mono truncate flex-1 text-foreground/60">{f.filename}</span>
-                  <span className="text-green-400/70 font-mono text-[10px] shrink-0">+{f.additions}</span>
-                  <span className="text-red-400/70 font-mono text-[10px] shrink-0">-{f.deletions}</span>
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] mb-2">File Changes ({analysis.classified.length})</p>
+        {(() => {
+          const fileRows = analysis.classified.map((f, i) => {
+            const tc = typeColors[f.type];
+            const sc = statusIcons[f.status];
+            const StatusIcon = sc.icon;
+            return (
+              <div key={f.filename} className={`flex items-center gap-2 text-[11px] py-1.5 px-1 rounded-sm border-b border-border/5 last:border-0 transition-colors hover:bg-accent/20 ${i % 2 === 1 ? "bg-accent/5" : ""}`}>
+                <Badge className={`${tc.bg} ${tc.text} text-[8px] px-1 py-0 w-10 justify-center border border-current/20`}>{tc.label}</Badge>
+                <StatusIcon className={`w-3 h-3 ${sc.color} shrink-0`} />
+                <span className="font-mono truncate flex-1 text-foreground/60">{f.filename}</span>
+                <span className="text-green-400/70 font-mono text-[10px] shrink-0">+{f.additions}</span>
+                <span className="text-red-400/70 font-mono text-[10px] shrink-0">-{f.deletions}</span>
+              </div>
+            );
+          });
+
+          // ≤10 files: show all, no scroll wrapper
+          if (analysis.classified.length <= 10) {
+            return <div className="space-y-0">{fileRows}</div>;
+          }
+          // >10 files: scroll with dynamic max height (30px per row approx)
+          const maxH = Math.min(analysis.classified.length * 30, 400);
+          return (
+            <div className="overflow-y-auto" style={{ maxHeight: `${maxH}px` }}>
+              <div className="space-y-0">{fileRows}</div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
