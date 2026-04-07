@@ -2,11 +2,13 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   GitBranch, Star, HardDrive, ExternalLink, Filter,
   CheckCircle2, XCircle, HelpCircle, Loader2, ArrowUpRight,
-  Bookmark as BookmarkIcon, FileCode, Download,
+  Bookmark as BookmarkIcon, FileCode, Download, ArrowLeft, ChevronRight,
+  Copy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,13 +17,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
-import { useRepo, useRepoIssues, useAnalyzeIssue } from "@/lib/queries";
+import { useRepo, useRepoIssues, useAnalyzeIssue, usePrDiff } from "@/lib/queries";
 import { useCreateBookmark } from "@/lib/mutations";
 import { DiffViewer } from "@/components/diff-viewer";
 import { PrFileAnalysis } from "@/components/pr-file-analysis";
 import { Pagination } from "@/components/pagination";
 import { exportIssuesJSON, exportIssuesCSV } from "@/lib/export";
-import { usePrDiff } from "@/lib/queries";
 import { toast } from "sonner";
 import type { Issue, AnalysisResult } from "@/lib/api";
 
@@ -121,6 +122,26 @@ function RepoPageInner() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb navigation */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex items-center gap-2.5 text-xs"
+      >
+        <Link
+          href="/discover"
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-all duration-200 group"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform duration-200" />
+          <span className="group-hover:text-primary">Discover</span>
+        </Link>
+        <ChevronRight className="w-3 h-3 text-muted-foreground/30" />
+        <span className="font-heading text-sm text-foreground/60 truncate max-w-[300px]">{repo.full_name}</span>
+      </motion.div>
+
+      <div className="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+
       {/* Repo header */}
       <div className="flex items-start justify-between">
         <div className="space-y-1">
@@ -327,104 +348,138 @@ function AnalysisPanel({
     }
   }
 
+  const glowColor = passes
+    ? "shadow-[0_0_30px_oklch(0.6_0.2_145/12%)]"
+    : "shadow-[0_0_30px_oklch(0.6_0.2_25/12%)]";
+
   return (
-    <ScrollArea className="h-[calc(100vh-280px)]">
-      <Card className={`glass ${passes ? "border-green-500/30" : "border-red-500/30"}`}>
-        <CardHeader className="pb-3">
-          {/* 1. Verdict */}
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-heading">#{result.issue.number} Analysis</CardTitle>
-            <Badge variant={passes ? "default" : "destructive"} className={passes ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}>
-              {passes ? "PASSES" : "FAILS"} — {result.score.toFixed(1)}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-2">{result.issue.title}</p>
-          <Badge variant="secondary" className="text-[10px] w-fit">{result.complexity_hint}</Badge>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 2. Scoring breakdown */}
-          <div className="space-y-1.5">
+    <div className="h-[calc(100vh-300px)] flex flex-col">
+      {/* ─── VERDICT HEADER (fixed) ─── */}
+      <div className={`shrink-0 glass rounded-t-lg p-4 ${passes ? "border border-green-500/20" : "border border-red-500/20"} ${glowColor}`}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-heading text-lg font-light">#{result.issue.number}</span>
+          <Badge
+            className={`text-xs px-2.5 py-0.5 font-mono ${
+              passes
+                ? "bg-green-500/15 text-green-400 border border-green-500/30"
+                : "bg-red-500/15 text-red-400 border border-red-500/30"
+            }`}
+          >
+            {passes ? "PASSES" : "FAILS"} — {result.score.toFixed(1)}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground line-clamp-2">{result.issue.title}</p>
+        <Badge variant="secondary" className="text-[10px] mt-1.5">{result.complexity_hint}</Badge>
+      </div>
+
+      {/* ─── SCROLLABLE CONTENT ─── */}
+      <ScrollArea className="flex-1 min-h-0 border-x border-border/10">
+        <div className="space-y-5 p-4">
+          {/* Scoring breakdown */}
+          <div className="glass rounded-lg p-3 space-y-1.5">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] mb-2">Scoring Breakdown</p>
             {result.reasons.map((r, i) => {
               const isPositive = r.includes("pure text") || r.includes("code files changed") || r.includes("substantive") || r.includes("Recent") || r.includes("preferred label") || r.includes("substantial");
               return (
-                <div key={i} className="flex items-start gap-2 text-xs">
-                  {isPositive ? <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0 mt-0.5" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />}
-                  <span className="text-muted-foreground">{r}</span>
-                </div>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="flex items-start gap-2 text-xs"
+                >
+                  {isPositive
+                    ? <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0 mt-0.5" />
+                    : <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+                  }
+                  <span className="text-muted-foreground/80">{r}</span>
+                </motion.div>
               );
             })}
           </div>
 
-          {/* 3. PR Summary */}
+          {/* PR Summary */}
           {result.pr && (
-            <>
-              <Separator className="opacity-30" />
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked PR</h4>
-                <div className="glass rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <a href={result.pr.html_url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                      PR #{result.pr.number} <ArrowUpRight className="w-3 h-3" />
-                    </a>
-                    <Badge variant="secondary" className="text-[9px] px-1 py-0">{result.pr.merged ? "merged" : result.pr.state}</Badge>
-                  </div>
-                  {result.pr.base_sha && (
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono text-[10px] text-muted-foreground/60 truncate flex-1">base: {result.pr.base_sha}</p>
-                      <button onClick={copySha} className="text-[9px] text-primary hover:underline shrink-0">Copy SHA</button>
-                    </div>
-                  )}
-                </div>
+            <div className="glass rounded-lg p-3 space-y-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em]">Linked Pull Request</p>
+              <div className="flex items-center justify-between">
+                <a href={result.pr.html_url} target="_blank" rel="noreferrer"
+                  className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors">
+                  PR #{result.pr.number} <ArrowUpRight className="w-3 h-3" />
+                </a>
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{result.pr.merged ? "merged" : result.pr.state}</Badge>
               </div>
-            </>
+              <div className="flex gap-3 text-[10px] text-muted-foreground/60">
+                <span className="text-green-400/70">+{result.pr.total_additions}</span>
+                <span className="text-red-400/70">-{result.pr.total_deletions}</span>
+                <span>{result.pr.files_count} files</span>
+              </div>
+              {result.pr.base_sha && (
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="font-mono text-[10px] text-muted-foreground/40 truncate flex-1">base: {result.pr.base_sha}</p>
+                  <button
+                    onClick={copySha}
+                    className="flex items-center gap-1 text-[9px] text-primary/70 hover:text-primary transition-colors shrink-0"
+                  >
+                    <Copy className="w-3 h-3" /> Copy
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* 4. File Analysis */}
+          {/* File Analysis */}
           {result.pr && diffFiles.length > 0 && (
-            <>
-              <Separator className="opacity-30" />
+            <div className="glass rounded-lg p-3">
               <PrFileAnalysis
                 files={diffFiles}
                 totalAdditions={result.pr.total_additions}
                 totalDeletions={result.pr.total_deletions}
               />
-            </>
+            </div>
           )}
 
-          {/* 5. Diff Viewer */}
-          {result.pr && (
-            <>
-              <Separator className="opacity-30" />
-              <DiffViewer repoFullName={repoFullName} prNumber={result.pr.number} />
-            </>
+          {/* Diff Viewer */}
+          {result.pr && diffFiles.length > 0 && (
+            <DiffViewer files={diffFiles} />
           )}
+          {result.pr && diffQuery.isLoading && (
+            <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground/50">
+              <Loader2 className="w-3 h-3 animate-spin" /> Loading diff...
+            </div>
+          )}
+        </div>
+      </ScrollArea>
 
-          {/* 6. Actions */}
-          <div className="flex gap-2 pt-2">
-            <a href={result.issue.html_url} target="_blank" rel="noreferrer" className="flex-1">
-              <Button variant="outline" size="sm" className="w-full text-xs">
-                <ExternalLink className="w-3 h-3 mr-1" /> Issue
-              </Button>
-            </a>
-            {result.pr && (
-              <a href={result.pr.html_url} target="_blank" rel="noreferrer" className="flex-1">
-                <Button variant="outline" size="sm" className="w-full text-xs">
-                  <ExternalLink className="w-3 h-3 mr-1" /> PR
-                </Button>
-              </a>
-            )}
-            <Button
-              variant="outline" size="sm"
-              className={`text-xs ${bookmarked ? "border-green-500/30 text-green-400" : "border-primary/30 text-primary"}`}
-              onClick={onBookmark}
-              disabled={isBookmarking || bookmarked}
-            >
-              <BookmarkIcon className="w-3 h-3 mr-1" />
-              {bookmarked ? "Saved" : isBookmarking ? "..." : "Save"}
+      {/* ─── ACTION BAR (fixed footer) ─── */}
+      <div className="shrink-0 flex gap-2 p-3 rounded-b-lg border border-border/10 border-t-0 backdrop-blur-xl bg-background/60"
+        style={{ borderTop: "1px solid oklch(0.8 0.12 75 / 10%)" }}>
+        <a href={result.issue.html_url} target="_blank" rel="noreferrer" className="flex-1">
+          <Button variant="outline" size="sm" className="w-full text-xs hover:shadow-[0_0_12px_oklch(0.8_0.12_75/15%)] transition-shadow">
+            <ExternalLink className="w-3 h-3 mr-1" /> Issue
+          </Button>
+        </a>
+        {result.pr && (
+          <a href={result.pr.html_url} target="_blank" rel="noreferrer" className="flex-1">
+            <Button variant="outline" size="sm" className="w-full text-xs hover:shadow-[0_0_12px_oklch(0.8_0.12_75/15%)] transition-shadow">
+              <ExternalLink className="w-3 h-3 mr-1" /> PR
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </ScrollArea>
+          </a>
+        )}
+        <Button
+          variant="outline" size="sm"
+          className={`text-xs transition-all duration-200 ${
+            bookmarked
+              ? "border-green-500/30 text-green-400 shadow-[0_0_12px_oklch(0.6_0.2_145/15%)]"
+              : "border-primary/30 text-primary hover:shadow-[0_0_12px_oklch(0.8_0.12_75/15%)]"
+          }`}
+          onClick={onBookmark}
+          disabled={isBookmarking || bookmarked}
+        >
+          <BookmarkIcon className="w-3 h-3 mr-1" />
+          {bookmarked ? "Saved" : isBookmarking ? "..." : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 }
