@@ -144,7 +144,7 @@ export function PrFileAnalysis({ files, totalAdditions, totalDeletions }: PrFile
       {/* File matrix */}
       <div className="space-y-1">
         <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] mb-2">File Changes</p>
-        <ScrollArea className="max-h-[200px]">
+        <ScrollArea className={analysis.classified.length <= 10 ? "" : analysis.classified.length <= 30 ? "max-h-[300px]" : "max-h-[400px]"}>
           <div className="space-y-0">
             {analysis.classified.map((f, i) => {
               const tc = typeColors[f.type];

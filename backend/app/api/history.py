@@ -20,6 +20,7 @@ class BookmarkRequest(BaseModel):
     issue_url: str
     score: float = 0.0
     notes: str = ""
+    status: str = "saved"
 
 
 class UpdateBookmarkRequest(BaseModel):

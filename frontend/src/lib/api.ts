@@ -277,6 +277,7 @@ export interface CreateBookmarkData {
   issue_url: string;
   score?: number;
   notes?: string;
+  status?: string;
 }
 
 export interface NotificationItem {

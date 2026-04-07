@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Compass,
   Search,
@@ -26,6 +26,7 @@ const nav = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { email, logout } = useStore();
 
   return (
@@ -84,7 +85,7 @@ export function Sidebar() {
               <p className="text-xs font-medium truncate">{email}</p>
             </div>
             <NotificationBell />
-            <button onClick={logout} className="text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => { logout(); router.push("/auth/login"); }} className="text-muted-foreground hover:text-foreground transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
           </div>

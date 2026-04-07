@@ -12,6 +12,8 @@ const statusColors: Record<string, string> = {
   saved: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   working: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
   done: "bg-green-500/10 text-green-400 border-green-500/30",
+  blacklisted: "bg-red-500/10 text-red-400 border-red-500/30",
+  no_more: "bg-gray-500/10 text-gray-400 border-gray-500/30",
   skipped: "bg-muted text-muted-foreground border-border",
 };
 
@@ -33,7 +35,7 @@ export default function BookmarksPage() {
       </div>
 
       <div className="flex gap-2">
-        {[undefined, "saved", "working", "done", "skipped"].map((s) => (
+        {[undefined, "saved", "working", "done", "blacklisted", "no_more", "skipped"].map((s) => (
           <Button key={s || "all"} variant="outline" size="sm" onClick={() => setFilter(s)}
             className={filter === s ? "border-primary/30 text-primary bg-primary/5" : ""}>
             {s || "All"}

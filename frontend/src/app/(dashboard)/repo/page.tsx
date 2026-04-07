@@ -8,7 +8,7 @@ import {
   GitBranch, Star, HardDrive, ExternalLink, Filter,
   CheckCircle2, XCircle, HelpCircle, Loader2, ArrowUpRight,
   Bookmark as BookmarkIcon, FileCode, Download, ArrowLeft, ChevronRight,
-  Copy,
+  Copy, ChevronDown, Ban, Wrench, CheckCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup,
+  DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/store";
 import { useRepo, useRepoIssues, useAnalyzeIssue, usePrDiff } from "@/lib/queries";
 import { useCreateBookmark } from "@/lib/mutations";
@@ -68,7 +72,7 @@ function RepoPageInner() {
     window.location.reload();
   }
 
-  function handleBookmark(result: AnalysisResult) {
+  function handleBookmark(result: AnalysisResult, status = "saved") {
     if (!repo) return;
     bookmarkMutation.mutate({
       repo: repo.full_name,
@@ -76,6 +80,7 @@ function RepoPageInner() {
       issue_title: result.issue.title,
       issue_url: result.issue.html_url,
       score: result.score,
+      status,
     });
   }
 
@@ -217,7 +222,7 @@ function RepoPageInner() {
             </div>
           ) : (
             <>
-              <ScrollArea className="h-[calc(100vh-370px)]">
+              <ScrollArea className="h-[calc(100vh-280px)]">
                 <div className="space-y-2 pr-4">
                   {issues.map((issue, i) => (
                     <IssueRow
@@ -247,7 +252,7 @@ function RepoPageInner() {
             <AnalysisPanel
               result={analysisQuery.data}
               repoFullName={repo.full_name}
-              onBookmark={() => handleBookmark(analysisQuery.data!)}
+              onBookmark={(status) => handleBookmark(analysisQuery.data!, status)}
               isBookmarking={bookmarkMutation.isPending}
               bookmarked={bookmarkMutation.isSuccess}
             />
@@ -299,7 +304,14 @@ function IssueRow({
               </div>
               <p className="text-sm font-medium mt-1 line-clamp-2">{issue.title}</p>
             </div>
-            {isAnalyzing && <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isAnalyzing && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+              <a href={issue.html_url} target="_blank" rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground/30 hover:text-primary transition-colors p-0.5">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
             <MetricIcon value={m.has_pr} trueLabel="PR" falseLabel="No PR" />
@@ -335,7 +347,7 @@ function RelevanceBadge({ score }: { score: number }) {
 function AnalysisPanel({
   result, repoFullName, onBookmark, isBookmarking, bookmarked,
 }: {
-  result: AnalysisResult; repoFullName: string; onBookmark: () => void; isBookmarking: boolean; bookmarked: boolean;
+  result: AnalysisResult; repoFullName: string; onBookmark: (status?: string) => void; isBookmarking: boolean; bookmarked: boolean;
 }) {
   const passes = result.passes;
   const diffQuery = usePrDiff(result.pr ? repoFullName : null, result.pr?.number ?? null);
@@ -353,7 +365,7 @@ function AnalysisPanel({
     : "shadow-[0_0_30px_oklch(0.6_0.2_25/12%)]";
 
   return (
-    <div className="h-[calc(100vh-300px)] flex flex-col">
+    <div className="h-[calc(100vh-220px)] flex flex-col">
       {/* ─── VERDICT HEADER (fixed) ─── */}
       <div className={`shrink-0 glass rounded-t-lg p-4 ${passes ? "border border-green-500/20" : "border border-red-500/20"} ${glowColor}`}>
         <div className="flex items-center justify-between mb-1">
@@ -466,19 +478,35 @@ function AnalysisPanel({
             </Button>
           </a>
         )}
-        <Button
-          variant="outline" size="sm"
-          className={`text-xs transition-all duration-200 ${
-            bookmarked
-              ? "border-green-500/30 text-green-400 shadow-[0_0_12px_oklch(0.6_0.2_145/15%)]"
-              : "border-primary/30 text-primary hover:shadow-[0_0_12px_oklch(0.8_0.12_75/15%)]"
-          }`}
-          onClick={onBookmark}
-          disabled={isBookmarking || bookmarked}
-        >
-          <BookmarkIcon className="w-3 h-3 mr-1" />
-          {bookmarked ? "Saved" : isBookmarking ? "..." : "Save"}
-        </Button>
+
+        {/* Status dropdown */}
+        {bookmarked ? (
+          <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-xs px-3 py-1.5 self-center">Saved</Badge>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger disabled={isBookmarking} className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-all duration-200 border-primary/30 text-primary hover:shadow-[0_0_12px_oklch(0.8_0.12_75/15%)] ${isBookmarking ? "opacity-50" : ""}`}>
+              {isBookmarking ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookmarkIcon className="w-3 h-3" />}
+              Save
+              <ChevronDown className="w-3 h-3 ml-0.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 glass">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => onBookmark("saved")} className="text-xs gap-2">
+                  <BookmarkIcon className="w-3.5 h-3.5 text-blue-400" /> Save to Bookmarks
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBookmark("working")} className="text-xs gap-2">
+                  <Wrench className="w-3.5 h-3.5 text-yellow-400" /> Mark as Working
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBookmark("blacklisted")} className="text-xs gap-2">
+                  <Ban className="w-3.5 h-3.5 text-red-400" /> Blacklist Issue
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBookmark("no_more")} className="text-xs gap-2">
+                  <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" /> No More (Done)
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );
