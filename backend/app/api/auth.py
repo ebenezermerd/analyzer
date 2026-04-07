@@ -35,17 +35,23 @@ class SetTokenRequest(BaseModel):
 
 @router.post("/register", response_model=TokenResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == req.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    import traceback
+    try:
+        existing = await db.execute(select(User).where(User.email == req.email))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-    user = User(email=req.email, hashed_password=hash_password(req.password))
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+        user = User(email=req.email, hashed_password=hash_password(req.password))
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
 
-    token = create_access_token({"sub": str(user.id)})
-    return TokenResponse(access_token=token, user_id=user.id, email=user.email)
+        token = create_access_token({"sub": str(user.id)})
+        return TokenResponse(access_token=token, user_id=user.id, email=user.email)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
 
 
 @router.post("/login", response_model=TokenResponse)
