@@ -15,7 +15,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     github_token = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     scans = relationship("ScanHistory", back_populates="user", cascade="all, delete-orphan")
     bookmarks = relationship("Bookmark", back_populates="user", cascade="all, delete-orphan")
@@ -35,7 +35,7 @@ class ScanHistory(Base):
     profile = Column(String(50), default="pr_writer")
     language = Column(String(50), default="Python")
     duration_sec = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="scans")
     results = relationship("ScanResult", back_populates="scan", cascade="all, delete-orphan")
@@ -77,7 +77,7 @@ class Bookmark(Base):
     score = Column(Float, default=0.0)
     notes = Column(Text, nullable=True)
     status = Column(String(50), default="saved")  # saved, working, done, skipped
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="bookmarks")
 
@@ -93,6 +93,6 @@ class Notification(Base):
     issue_url = Column(String(500), nullable=True)
     message = Column(Text, nullable=False)
     read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="notifications")
