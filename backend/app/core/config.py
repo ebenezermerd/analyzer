@@ -3,20 +3,8 @@
 import os
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
-
-# ── Database URL resolution ──────────────────────────────────
-# Priority: DATABASE_URL env var (Neon/Postgres) → SQLite fallback
-_raw_db = os.environ.get("DATABASE_URL", "")
-if _raw_db:
-    if _raw_db.startswith("postgres://"):
-        _db_url = "postgresql+asyncpg://" + _raw_db[len("postgres://"):]
-    elif _raw_db.startswith("postgresql://") and "+asyncpg" not in _raw_db:
-        _db_url = "postgresql+asyncpg://" + _raw_db[len("postgresql://"):]
-    else:
-        _db_url = _raw_db
-else:
-    _db_url = f"sqlite+aiosqlite:///{Path('/tmp') / 'issue_finder_web.db'}"
 
 
 class Settings(BaseSettings):
@@ -28,8 +16,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440  # 24 hours
 
-    # Database
-    database_url: str = _db_url
+    # Database — pydantic reads DATABASE_URL from env automatically
+    database_url: str = f"sqlite+aiosqlite:///{Path('/tmp') / 'issue_finder_web.db'}"
 
     # GitHub defaults
     default_min_stars: int = 200
@@ -49,6 +37,17 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "https://pranalyzer.vercel.app",
     ]
+
+    @model_validator(mode="after")
+    def normalize_database_url(self) -> "Settings":
+        """Ensure async driver is used — Neon emits postgres:// or postgresql://
+        but SQLAlchemy needs postgresql+asyncpg:// for async."""
+        url = self.database_url
+        if url.startswith("postgres://"):
+            self.database_url = "postgresql+asyncpg://" + url[len("postgres://"):]
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            self.database_url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+        return self
 
     class Config:
         env_file = ".env"
