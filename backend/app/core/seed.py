@@ -19,32 +19,38 @@ async def seed_admin():
     from ..models.user import User, ClaimToken
 
     async with async_session() as db:
-        # Check if any admin already exists
-        result = await db.execute(select(User).where(User.role == "admin"))
+        # Check if any admin already exists and is active — truly done
+        result = await db.execute(select(User).where(User.role == "admin", User.is_active == True))
         if result.scalar_one_or_none():
-            logger.info("Admin user already exists — skipping seed")
+            print("[SEED] Admin user already active — skipping seed")
             return
 
-        # Check if the admin email already exists as a regular user — promote them
-        existing = await db.execute(select(User).where(User.email == settings.admin_email))
-        user = existing.scalar_one_or_none()
+        # Check if admin exists but is inactive (needs claim token)
+        result2 = await db.execute(select(User).where(User.role == "admin", User.is_active == False))
+        user = result2.scalar_one_or_none()
 
-        if user:
-            user.role = "admin"
-            user.is_active = False
-            logger.info(f"Promoted existing user {settings.admin_email} to admin")
-        else:
-            user = User(
-                email=settings.admin_email,
-                hashed_password=hash_password(secrets.token_urlsafe(32)),
-                role="admin",
-                is_active=False,
-            )
-            db.add(user)
+        if not user:
+            # Check if the admin email exists as a regular user — promote them
+            existing = await db.execute(select(User).where(User.email == settings.admin_email))
+            user = existing.scalar_one_or_none()
+
+            if user:
+                user.role = "admin"
+                user.is_active = False
+                print(f"[SEED] Promoted existing user {settings.admin_email} to admin")
+            else:
+                user = User(
+                    email=settings.admin_email,
+                    hashed_password=hash_password(secrets.token_urlsafe(32)),
+                    role="admin",
+                    is_active=False,
+                )
+                db.add(user)
+                print(f"[SEED] Created admin stub for {settings.admin_email}")
 
         await db.flush()
 
-        # Generate claim token
+        # Generate a fresh claim token (invalidates old ones)
         token = secrets.token_urlsafe(32)
         claim = ClaimToken(
             user_id=user.id,
@@ -55,7 +61,8 @@ async def seed_admin():
         await db.commit()
 
         claim_url = f"{settings.frontend_url}/auth/claim?token={token}"
-        logger.info(f"Admin account created for {settings.admin_email}")
-        logger.info(f"Claim URL: {claim_url}")
+        print(f"[SEED] ==============================")
+        print(f"[SEED] Admin claim URL: {claim_url}")
+        print(f"[SEED] ==============================")
 
         await send_claim_email(settings.admin_email, token)
