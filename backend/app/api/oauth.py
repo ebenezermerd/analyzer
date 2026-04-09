@@ -113,25 +113,21 @@ async def github_oauth_callback(
 
     username = user_data.get("login", "")
 
-    # Find or create user
+    # Find existing user — do NOT auto-create
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if not user:
-        user = User(
-            email=email,
-            hashed_password=hash_password(secrets.token_urlsafe(32)),  # random password for OAuth users
-            github_token=github_token,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-    else:
-        # Update token
-        user.github_token = github_token
-        await db.commit()
+        raise HTTPException(403, "No account found for this email. Please request access first.")
 
-    jwt = create_access_token({"sub": str(user.id)})
+    if not user.is_active:
+        raise HTTPException(403, "Account not yet activated. Please check your email for a claim link.")
+
+    # Update GitHub token
+    user.github_token = github_token
+    await db.commit()
+
+    jwt = create_access_token({"sub": str(user.id), "role": user.role})
     return OAuthTokenResponse(
         access_token=jwt,
         user_id=user.id,

@@ -7,12 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
 from .core.database import init_db
-from .api import auth, discovery, history, notifications, oauth, websocket
+from .core.seed import seed_admin
+from .api import admin, auth, discovery, history, notifications, oauth, websocket
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await seed_admin()
     yield
 
 
@@ -30,6 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(oauth.router)
 app.include_router(discovery.router)

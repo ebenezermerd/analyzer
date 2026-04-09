@@ -31,6 +31,23 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     github_oauth_redirect: str = "https://pranalyzer.vercel.app/auth/callback"
 
+    # Email (SMTP for claim tokens & notifications)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@pranalyzer.vercel.app"
+    smtp_use_tls: bool = True
+
+    # Admin seed
+    admin_email: str = "ebenezermerd@gmail.com"
+
+    # Frontend URL (for claim links in emails)
+    frontend_url: str = "https://pranalyzer.vercel.app"
+
+    # Claim token expiry
+    claim_token_expire_hours: int = 72
+
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",

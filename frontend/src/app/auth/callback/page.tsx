@@ -46,9 +46,14 @@ function CallbackInner() {
             <XCircle className="w-10 h-10 text-red-400 mx-auto" />
             <p className="text-foreground">Authentication failed</p>
             <p className="text-xs text-red-400">{(mutation.error as Error).message}</p>
-            <button onClick={() => router.push("/settings")} className="text-xs text-primary underline mt-2">
-              Go to settings
-            </button>
+            <div className="flex gap-3 justify-center mt-2">
+              <button onClick={() => router.push("/auth/request-access")} className="text-xs text-primary underline">
+                Request Access
+              </button>
+              <button onClick={() => router.push("/auth/login")} className="text-xs text-muted-foreground underline">
+                Back to login
+              </button>
+            </div>
           </>
         )}
       </div>

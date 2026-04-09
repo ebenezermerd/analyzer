@@ -57,3 +57,18 @@ async def require_auth(
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid token payload")
     return int(user_id)
+
+
+async def require_admin(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> int:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    payload = decode_token(credentials.credentials)
+    user_id = payload.get("sub")
+    role = payload.get("role")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return int(user_id)

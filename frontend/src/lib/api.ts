@@ -17,16 +17,26 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
 // Auth
 export const auth = {
   register: (email: string, password: string) =>
-    fetchAPI<{ access_token: string; user_id: number; email: string }>("/auth/register", {
+    fetchAPI<{ access_token: string; user_id: number; email: string; role: string }>("/auth/register", {
       method: "POST", body: JSON.stringify({ email, password }),
     }),
   login: (email: string, password: string) =>
-    fetchAPI<{ access_token: string; user_id: number; email: string }>("/auth/login", {
+    fetchAPI<{ access_token: string; user_id: number; email: string; role: string }>("/auth/login", {
       method: "POST", body: JSON.stringify({ email, password }),
     }),
-  me: () => fetchAPI<{ id: number; email: string; has_github_token: boolean }>("/auth/me"),
+  me: () => fetchAPI<{ id: number; email: string; has_github_token: boolean; role: string; is_active: boolean }>("/auth/me"),
   setGithubToken: (github_token: string) =>
     fetchAPI("/auth/github-token", { method: "POST", body: JSON.stringify({ github_token }) }),
+  requestAccess: (email: string, name?: string, reason?: string) =>
+    fetchAPI<{ message: string }>("/auth/request-access", {
+      method: "POST", body: JSON.stringify({ email, name, reason }),
+    }),
+  validateClaim: (token: string) =>
+    fetchAPI<{ valid: boolean; email: string }>(`/auth/claim/${token}`),
+  claim: (token: string, password: string, email?: string) =>
+    fetchAPI<{ access_token: string; user_id: number; email: string; role: string }>("/auth/claim", {
+      method: "POST", body: JSON.stringify({ token, password, email }),
+    }),
 };
 
 // Helper to read all preferences from persisted store
@@ -298,3 +308,75 @@ export interface PrFileDiff {
   changes: number;
   patch: string;
 }
+
+// Admin types
+export interface AdminUser {
+  id: number;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  claimed_at: string | null;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  has_github_token: boolean;
+  scan_count: number;
+  total_issues_found: number;
+}
+
+export interface AccessRequestItem {
+  id: number;
+  email: string;
+  name: string | null;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface PlatformAnalytics {
+  total_users: number;
+  active_users: number;
+  total_scans: number;
+  total_issues_found: number;
+  pending_requests: number;
+  daily_activity: { day: string; scans: number; issues: number }[];
+  top_users: { email: string; scan_count: number }[];
+}
+
+export interface DashboardConfig {
+  default_min_stars: number;
+  default_max_repos: number;
+  default_max_issues: number;
+  default_min_score: number;
+  default_concurrency: number;
+}
+
+// Admin API
+export const adminApi = {
+  getUsers: (params?: { search?: string; role?: string; is_active?: string; page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.role) qs.set("role", params.role);
+    if (params?.is_active) qs.set("is_active", params.is_active);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    return fetchAPI<{ users: AdminUser[]; total: number; page: number; per_page: number }>(`/admin/users?${qs}`);
+  },
+  getUser: (id: number) => fetchAPI<AdminUserDetail>(`/admin/users/${id}`),
+  updateUser: (id: number, data: { role?: string; is_active?: boolean }) =>
+    fetchAPI(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  getAccessRequests: (status?: string) =>
+    fetchAPI<{ requests: AccessRequestItem[]; total: number }>(`/admin/access-requests${status ? `?status=${status}` : ""}`),
+  approveRequest: (id: number) =>
+    fetchAPI<{ status: string; email: string }>(`/admin/access-requests/${id}/approve`, { method: "POST" }),
+  denyRequest: (id: number) =>
+    fetchAPI<{ status: string; email: string }>(`/admin/access-requests/${id}/deny`, { method: "POST" }),
+  invite: (email: string) =>
+    fetchAPI<{ status: string; email: string }>("/admin/invite", { method: "POST", body: JSON.stringify({ email }) }),
+  getAnalytics: () => fetchAPI<PlatformAnalytics>("/admin/analytics"),
+  getDashboardConfig: () => fetchAPI<DashboardConfig>("/admin/dashboard-config"),
+  updateDashboardConfig: (data: Partial<DashboardConfig>) =>
+    fetchAPI("/admin/dashboard-config", { method: "PATCH", body: JSON.stringify(data) }),
+};

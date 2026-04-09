@@ -11,6 +11,10 @@ import {
   Settings,
   Sparkles,
   LogOut,
+  Users,
+  UserPlus,
+  BarChart3,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { ProfileSelector } from "./profile-selector";
@@ -27,7 +31,7 @@ const nav = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { email, logout } = useStore();
+  const { email, logout, role } = useStore();
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 glass-strong flex flex-col z-50">
@@ -68,6 +72,37 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Admin Nav */}
+      {role === "admin" && (
+        <div className="px-4 space-y-1">
+          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/50 font-medium px-3 pt-3 pb-1">
+            Admin
+          </p>
+          {[
+            { href: "/admin/users", label: "Users", icon: Users },
+            { href: "/admin/access-requests", label: "Access Requests", icon: UserPlus },
+            { href: "/admin/analytics", label: "Platform Analytics", icon: BarChart3 },
+            { href: "/admin/config", label: "Configuration", icon: SlidersHorizontal },
+          ].map(({ href, label, icon: Icon }) => {
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  active
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Profile & Language */}
       <div className="border-t border-border py-3">

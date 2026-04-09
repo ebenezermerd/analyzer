@@ -15,6 +15,9 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     github_token = Column(String(255), nullable=True)
+    role = Column(String(20), nullable=False, default="user")  # "admin" or "user"
+    is_active = Column(Boolean, nullable=False, default=False)
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     scans = relationship("ScanHistory", back_populates="user", cascade="all, delete-orphan")
@@ -96,3 +99,27 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="notifications")
+
+
+class AccessRequest(Base):
+    __tablename__ = "access_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=True)
+    reason = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="pending")  # pending, approved, denied
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ClaimToken(Base):
+    __tablename__ = "claim_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String(255), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

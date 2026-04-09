@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
-import { useLogin, useRegister } from "@/lib/mutations";
+import { useLogin } from "@/lib/mutations";
 import { oauth } from "@/lib/api";
 
 export default function LoginPage() {
@@ -17,13 +17,11 @@ export default function LoginPage() {
   const { token } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isRegister, setIsRegister] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthError, setOauthError] = useState("");
 
   const loginMutation = useLogin();
-  const registerMutation = useRegister();
-  const authMutation = isRegister ? registerMutation : loginMutation;
+  const authMutation = loginMutation;
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -123,7 +121,7 @@ export default function LoginPage() {
                   className="glass h-11"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                 />
               </div>
 
@@ -142,7 +140,7 @@ export default function LoginPage() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    {isRegister ? "Create Account" : "Sign In"}
+                    Sign In
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 )}
@@ -150,12 +148,12 @@ export default function LoginPage() {
             </form>
 
             <p className="text-center text-xs text-muted-foreground">
-              {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
+              Don&apos;t have an account?{" "}
               <button
-                onClick={() => setIsRegister(!isRegister)}
+                onClick={() => router.push("/auth/request-access")}
                 className="text-primary hover:underline"
               >
-                {isRegister ? "Sign in" : "Create one"}
+                Request Access
               </button>
             </p>
           </CardContent>

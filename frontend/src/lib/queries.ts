@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { discovery, history as historyApi, notificationsApi, auth as authApi } from "./api";
+import { discovery, history as historyApi, notificationsApi, auth as authApi, adminApi } from "./api";
 import { useStore } from "./store";
 import type { Repo, IssuesResponse, AnalysisResult, Profile } from "./api";
 
@@ -174,5 +174,49 @@ export function useMe() {
     queryFn: () => authApi.me(),
     enabled: !!token,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ── Admin ────────────────────────────────────────────────────────────
+export const adminKeys = {
+  users: (params?: Record<string, string | undefined>) => ["admin-users", params] as const,
+  accessRequests: (status?: string) => ["admin-access-requests", status] as const,
+  analytics: ["admin-analytics"] as const,
+  dashboardConfig: ["admin-dashboard-config"] as const,
+};
+
+export function useAdminUsers(params?: { search?: string; role?: string; is_active?: string; page?: number }) {
+  const { role } = useStore();
+  return useQuery({
+    queryKey: adminKeys.users(params as Record<string, string | undefined>),
+    queryFn: () => adminApi.getUsers(params),
+    enabled: role === "admin",
+  });
+}
+
+export function useAdminAccessRequests(status?: string) {
+  const { role } = useStore();
+  return useQuery({
+    queryKey: adminKeys.accessRequests(status),
+    queryFn: () => adminApi.getAccessRequests(status),
+    enabled: role === "admin",
+  });
+}
+
+export function useAdminAnalytics() {
+  const { role } = useStore();
+  return useQuery({
+    queryKey: adminKeys.analytics,
+    queryFn: () => adminApi.getAnalytics(),
+    enabled: role === "admin",
+  });
+}
+
+export function useAdminDashboardConfig() {
+  const { role } = useStore();
+  return useQuery({
+    queryKey: adminKeys.dashboardConfig,
+    queryFn: () => adminApi.getDashboardConfig(),
+    enabled: role === "admin",
   });
 }

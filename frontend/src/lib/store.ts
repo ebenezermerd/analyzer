@@ -37,7 +37,8 @@ interface AppState extends Preferences {
   userId: number | null;
   email: string | null;
   githubToken: string | null;
-  setAuth: (token: string, userId: number, email: string) => void;
+  role: "admin" | "user" | null;
+  setAuth: (token: string, userId: number, email: string, role: string) => void;
   setGithubToken: (token: string) => void;
   logout: () => void;
 
@@ -64,14 +65,15 @@ export const useStore = create<AppState>()(
       userId: null,
       email: null,
       githubToken: null,
-      setAuth: (token, userId, email) => {
+      role: null,
+      setAuth: (token, userId, email, role) => {
         if (typeof window !== "undefined") localStorage.setItem("token", token);
-        set({ token, userId, email });
+        set({ token, userId, email, role: role as "admin" | "user" });
       },
       setGithubToken: (githubToken) => set({ githubToken }),
       logout: () => {
         if (typeof window !== "undefined") localStorage.removeItem("token");
-        set({ token: null, userId: null, email: null, githubToken: null });
+        set({ token: null, userId: null, email: null, githubToken: null, role: null });
       },
 
       // UI
@@ -96,6 +98,7 @@ export const useStore = create<AppState>()(
         userId: state.userId,
         email: state.email,
         githubToken: state.githubToken,
+        role: state.role,
         activeProfile: state.activeProfile,
         language: state.language,
         minStars: state.minStars,
