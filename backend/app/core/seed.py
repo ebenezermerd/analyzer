@@ -19,19 +19,29 @@ async def seed_admin():
     from ..models.user import User, ClaimToken
 
     async with async_session() as db:
+        # Check if any admin already exists
         result = await db.execute(select(User).where(User.role == "admin"))
         if result.scalar_one_or_none():
             logger.info("Admin user already exists — skipping seed")
             return
 
-        # Create unclaimed admin stub with random password
-        user = User(
-            email=settings.admin_email,
-            hashed_password=hash_password(secrets.token_urlsafe(32)),
-            role="admin",
-            is_active=False,
-        )
-        db.add(user)
+        # Check if the admin email already exists as a regular user — promote them
+        existing = await db.execute(select(User).where(User.email == settings.admin_email))
+        user = existing.scalar_one_or_none()
+
+        if user:
+            user.role = "admin"
+            user.is_active = False
+            logger.info(f"Promoted existing user {settings.admin_email} to admin")
+        else:
+            user = User(
+                email=settings.admin_email,
+                hashed_password=hash_password(secrets.token_urlsafe(32)),
+                role="admin",
+                is_active=False,
+            )
+            db.add(user)
+
         await db.flush()
 
         # Generate claim token
